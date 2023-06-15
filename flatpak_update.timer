@@ -1,1 +1,11 @@
+[Unit]
+Description=Flatpak Update Timer
+
+[Timer]
+OnCalendar=weekly
+RandomizedDelaySec=1day
+Persistent=true
+
+[Install]
+WantedBy=timers.target
 
