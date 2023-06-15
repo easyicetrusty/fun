@@ -1,0 +1,31 @@
+#!/bin/bash
+
+start_time=$(date +%s)
+
+# Update Flatpak repositories
+flatpak update -y
+
+# Check if any Flatpak packages are outdated
+outdated_packages=0
+while IFS= read -r line; do
+  package=$(echo "$line" | awk '{print $1}')
+  current_version=$(echo "$line" | awk '{print $2}')
+  installed_version=$(flatpak info "$package" | grep Version | awk '{print $2}')
+
+  if [[ $current_version != $installed_version ]]; then
+    outdated_packages=1
+    break
+  fi
+done < <(flatpak list --app --columns=app,version)
+
+if [[ $outdated_packages -eq 1 ]]; then
+  echo -e "\n - Not all Flatpak packages are up to date\n"
+else
+  echo -e "\n - All Flatpak packages are up to date\n"
+fi
+
+end_time=$(date +%s)
+execution_time=$((end_time - start_time))
+
+echo "Date and Time: $(date)"
+echo "Execution Time: $execution_time seconds"
