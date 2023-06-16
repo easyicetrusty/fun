@@ -34,3 +34,10 @@ def update_arch_system():
     print("Update Status:", update_status)
 
 update_arch_system()
+### Adding notification on the Desktop. Be better if integrated into KDE ###
+import subprocess
+
+def send_notification(message):
+    subprocess.run(['notify-send', 'Update Arch Script', message])
+
+send_notification("The script has been run successfully.")
