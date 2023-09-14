@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+import os
+import subprocess
+import sys
+import time
+
+# Function to display a progress bar
+def display_progress(percentage):
+    width = 50
+    fill_char = "#"
+    empty_char = "."
+
+    # Calculate the number of filled and empty characters
+    filled = int(width * percentage / 100)
+    empty_count = width - filled
+
+    # Create the progress bar
+    progress_bar = "[" + fill_char * filled + empty_char * empty_count + "]"
+
+    # Print the progress bar with percentage
+    sys.stdout.write("\r%s (%.2f%%)" % (progress_bar, percentage))
+    sys.stdout.flush()
+
+# Function to check if the phone is properly connected via ADB debugging
+def check_adb_connection():
+    adb_devices = subprocess.check_output(["adb", "devices"]).decode("utf-8")
+    return "device" in adb_devices
+
+# Check if ADB is installed
+try:
+    subprocess.check_output(["adb", "--version"])
+except FileNotFoundError:
+    print("ADB is not installed. Please install ADB and try again.")
+    sys.exit(1)
+
+# Check if the phone is connected via ADB debugging
+if not check_adb_connection():
+    print("Phone is not properly connected via ADB debugging or unauthorized. Please connect the phone and enable ADB debugging.")
+    sys.exit(1)
+
+# Specify the utility name and path on the Android device
+utility_name = "bu"
+android_utility_path = f"/system/bin/{utility_name}"
+
+# Check if the utility exists on the Android device
+if not subprocess.run(["adb", "shell", f"test -e {android_utility_path}"]).returncode == 0:
+    print(f"'{utility_name}' utility not found on the Android device.")
+    print("You may need to install or obtain the utility for your specific needs.")
+    sys.exit(1)
+
+# Ask where to save the backup directory on the Android device (e.g., /sdcard)
+backup_dir = input("Enter the full path on the Android device to save the backup (e.g., /sdcard): ")
+
+# Ensure the backup directory path on the Android device is specified
+if not backup_dir:
+    print("Backup directory path on the Android device is required. Exiting.")
+    sys.exit(1)
+
+# Specify the base name for the backup file on the Android device
+backup_base_name = "backup.ab"
+
+# Generate a timestamp with format: YYYYMMDD_HHMMSS
+timestamp = time.strftime("%Y%m%d_%H%M%S")
+
+# Start the Android backup process on the Android device
+print("Starting Android backup on the Android device...")
+
+# Run the bu backup command on the Android device
+print(f"Running '{utility_name} backup' command on the Android device: {utility_name} backup -noapk -noshared -nosystem -all -f {backup_dir}/{backup_base_name}")
+
+subprocess.run(["adb", "shell", f"{android_utility_path}", "backup", "-noapk", "-noshared", "-nosystem", "-all", "-f", f"{backup_dir}/{backup_base_name}"])
+
+# Monitor the progress of the backup on the Android device
+while True:
+    # Check if the phone is still connected via ADB debugging
+    if not check_adb_connection():
+        print("Phone is not connected. Please connect your phone via ADB debugging and run the script again.")
+        sys.exit(1)
+
+    # Check the actual file size of the backup file on the Android device
+    try:
+        file_size = int(subprocess.check_output(["adb", "shell", f"stat -c %s {backup_dir}/{backup_base_name}"]).strip())
+    except (subprocess.CalledProcessError, ValueError):
+        file_size = 0
+
+    total_size = 1024 * 1024 * 1024  # Assuming 1 GB backup size (adjust as needed)
+
+    # Calculate the progress percentage capped at 100%
+    percentage = min((file_size * 100 / total_size), 100)
+
+    # Display the progress bar with percentage
+    display_progress(percentage)
+    time.sleep(1)
+
+# Complete the progress display
+print("\nBackup completed on the Android device.")
+
+# Pull the backup file from the Android device to the workstation
+backup_file_on_device = f"{backup_dir}/{backup_base_name}"
+backup_file_on_workstation = os.path.join(os.getcwd(), f"{timestamp}_{backup_base_name}")
+print(f"Pulling backup file from Android device to {backup_file_on_workstation}")
+subprocess.run(["adb", "pull", backup_file_on_device, backup_file_on_workstation])
+
+# Check if the backup file was pulled successfully
+if os.path.exists(backup_file_on_workstation):
+    print(f"Backup file saved to {backup_file_on_workstation}")
+else:
+    print("Failed to pull the backup file from the Android device.")
